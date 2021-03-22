@@ -1,0 +1,37 @@
+- name: Take snapshot
+  hosts: all
+  vars_prompt:
+    - name: vcenter_username
+      prompt: vcenter_username
+    - name: vcenter_password
+      prompt: vcenter_password
+  vars_files:
+    - credentials.yml
+  tasks:
+    - name: colect HW fact
+      setup:
+        gather_subset:
+          - hardware
+      tags:
+        - never
+
+    - name: Fetch the UUID of the managed hosts
+      shell: dmidecode -s system-serial-number | awk '{print $1$2$3$4"-"$5$6"-"$7$8$9"-"$10$11$12$13$14$15}' | cut -d'-' --complement -f1
+      register: uuid
+    - debug:
+        msg: "{{ uuid.stdout }}"
+
+
+    - name: Create a snapshot
+      vmware_guest_snapshot:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ datacenter_name }}"
+#        folder: "/{{ datacenter_name }}/"
+        uuid: "{{ uuid.stdout }}"
+        state: revert
+        snapshot_name: snapshot1
+        validate_certs: no
+        description: snapshot from Ansible
+      delegate_to: localhost
